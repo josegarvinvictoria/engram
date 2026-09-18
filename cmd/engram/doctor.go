@@ -88,6 +88,7 @@ func cmdDoctor(cfg store.Config) {
 	renderDoctorText(report)
 }
 
+// printDoctorUsage writes the general doctor command usage and check classifications.
 func printDoctorUsage() {
 	fmt.Fprintln(os.Stdout, "usage: engram doctor [--json] [--project PROJECT] [--check CODE]")
 	fmt.Fprintln(os.Stdout, "       engram doctor repair --project PROJECT --check CODE (--plan|--dry-run|--apply)")
@@ -97,6 +98,7 @@ func printDoctorUsage() {
 	_, _ = fmt.Fprintln(os.Stdout, "diagnostic-only checks with no repair: "+strings.Join(diagnosticOnlyCheckCodes(), ", "))
 }
 
+// printDoctorRepairUsage writes the repair command usage and check classifications.
 func printDoctorRepairUsage() {
 	_, _ = fmt.Fprintln(os.Stdout, "usage: engram doctor repair --project PROJECT --check CODE (--plan|--dry-run|--apply)")
 	_, _ = fmt.Fprintln(os.Stdout, "       engram doctor repair [--project PROJECT] --check "+diagnostic.CheckSyncMutationRequiredFields+" [--plan|--dry-run|--apply] (default: --dry-run)")
@@ -105,6 +107,7 @@ func printDoctorRepairUsage() {
 	_, _ = fmt.Fprintln(os.Stdout, "diagnostic-only checks with no repair: "+strings.Join(diagnosticOnlyCheckCodes(), ", "))
 }
 
+// diagnosticOnlyCheckCodes returns registered checks that have no repair operation.
 func diagnosticOnlyCheckCodes() []string {
 	repairable := make(map[string]bool, len(diagnostic.RepairableCodes()))
 	for _, code := range diagnostic.RepairableCodes() {
