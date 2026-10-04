@@ -342,7 +342,7 @@ For an accepted `POST /sync/mutations/push`, each future materialized cloud chun
   - `200` returns `{id, status: "committed"}` for a retained committed result; missing/empty `operation_id` returns `400`.
   - `404` with `{error: "no committed result found for operation_id"}` for both an unknown ID and a tombstoned operation. Lookup does not distinguish them; POST does (normal save vs `410` for the same payload, or `409` for a changed tombstoned payload).
   - A lookup miss is **not proof that the original request cannot commit later**. It neither cancels an in-flight POST nor authorizes a fresh operation ID for the same logical save.
-  - The Pi plugin supplies an operation UUID and attempts lookup recovery after an ambiguous transport outcome. It currently performs **no automatic exact POST replay**; an unsuccessful lookup preserves the original uncertain outcome.
+  - The Pi plugin supplies an operation UUID and attempts lookup recovery after an ambiguous transport outcome. It then performs a bounded exact POST replay (up to three attempts with exponential backoff) using the same operation ID and payload. If the outcome is still unresolved after the bounded attempts and a final lookup, the original uncertain outcome is preserved.
 - `GET /observations` — Recent observations compatibility endpoint. Query: `?project=X&all_projects=true&scope=project|personal|global&limit=N&sort=created_at:desc`
 - `GET /observations/recent` — Recent observations. Query: `?project=X&all_projects=true&scope=project|personal|global&limit=N`
   - No-result responses from both observation collection endpoints return `200` with `[]` (never `null`)
