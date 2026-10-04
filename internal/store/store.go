@@ -3766,6 +3766,54 @@ func observationSaveFingerprint(p AddObservationParams, title, content, project,
 	return "v1:" + hex.EncodeToString(h.Sum(nil))
 }
 
+// GetObservationSaveResult returns the committed observation ID for a previous
+// observation save operation, if any. It is intended for clients that lost the
+// response and want to recover without replaying the write. A zero result with
+// a nil error means no committed outcome is known yet (or the original
+// observation was deleted and the operation has expired).
+func (s *Store) GetObservationSaveResult(operationID string) (observationID int64, err error) {
+	if operationID == "" {
+		return 0, nil
+	}
+	var nullableID sql.NullInt64
+	err = s.db.QueryRow(
+		`SELECT observation_id FROM observation_save_operations WHERE operation_id = ?`,
+		operationID,
+	).Scan(&nullableID)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if !nullableID.Valid {
+		return 0, nil
+	}
+	return nullableID.Int64, nil
+}
+
+// ObservationOperationRecorded is a cheap existence probe for the operation
+// ledger. It returns true when any row exists for the operation ID, including
+// tombstones left by hard deletion, so callers can short-circuit session
+// ownership pre-validation for committed operations.
+func (s *Store) ObservationOperationRecorded(operationID string) (bool, error) {
+	if operationID == "" {
+		return false, nil
+	}
+	var exists bool
+	err := s.db.QueryRow(
+		`SELECT 1 FROM observation_save_operations WHERE operation_id = ? LIMIT 1`,
+		operationID,
+	).Scan(&exists)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // recordObservationSaveOperationTx persists the idempotent operation ledger row
 // when an operation ID was supplied, then enqueues the sync mutation for the
 // observation. It is called from every success path inside AddObservation so

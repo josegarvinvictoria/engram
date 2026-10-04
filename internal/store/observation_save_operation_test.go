@@ -247,6 +247,83 @@ func TestObservationOperationDuplicateLedgerInsertFails(t *testing.T) {
 	}
 }
 
+func TestGetObservationSaveResult(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.CreateSession("result", "test-project", "/tmp"); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	if got, err := s.GetObservationSaveResult(""); err != nil || got != 0 {
+		t.Fatalf("empty operation_id: got %d, %v; want 0, nil", got, err)
+	}
+	if got, err := s.GetObservationSaveResult("op-unknown"); err != nil || got != 0 {
+		t.Fatalf("unknown operation_id: got %d, %v; want 0, nil", got, err)
+	}
+
+	id, err := s.AddObservation(AddObservationParams{
+		SessionID:   "result",
+		Type:        "manual",
+		Title:       "Result",
+		Content:     "Content.",
+		Project:     "test-project",
+		Scope:       "project",
+		OperationID: "op-result",
+	})
+	if err != nil {
+		t.Fatalf("AddObservation: %v", err)
+	}
+	got, err := s.GetObservationSaveResult("op-result")
+	if err != nil || got != id {
+		t.Fatalf("GetObservationSaveResult = %d, %v; want %d, nil", got, err, id)
+	}
+
+	if err := s.DeleteObservation(id, true); err != nil {
+		t.Fatalf("DeleteObservation: %v", err)
+	}
+	if got, err := s.GetObservationSaveResult("op-result"); err != nil || got != 0 {
+		t.Fatalf("tombstoned operation_id: got %d, %v; want 0, nil", got, err)
+	}
+}
+
+func TestObservationOperationRecorded(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.CreateSession("recorded", "test-project", "/tmp"); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	if got, err := s.ObservationOperationRecorded(""); err != nil || got {
+		t.Fatalf("empty operation_id: got %v, %v; want false, nil", got, err)
+	}
+	if got, err := s.ObservationOperationRecorded("op-unknown"); err != nil || got {
+		t.Fatalf("unknown operation_id: got %v, %v; want false, nil", got, err)
+	}
+
+	id, err := s.AddObservation(AddObservationParams{
+		SessionID:   "recorded",
+		Type:        "manual",
+		Title:       "Recorded",
+		Content:     "Content.",
+		Project:     "test-project",
+		Scope:       "project",
+		OperationID: "op-recorded",
+	})
+	if err != nil {
+		t.Fatalf("AddObservation: %v", err)
+	}
+	got, err := s.ObservationOperationRecorded("op-recorded")
+	if err != nil || !got {
+		t.Fatalf("committed operation recorded: got %v, %v; want true, nil", got, err)
+	}
+
+	if err := s.DeleteObservation(id, true); err != nil {
+		t.Fatalf("DeleteObservation: %v", err)
+	}
+	got, err = s.ObservationOperationRecorded("op-recorded")
+	if err != nil || !got {
+		t.Fatalf("tombstoned operation recorded: got %v, %v; want true, nil", got, err)
+	}
+}
+
 func countObservationSaveOperations(s *Store) (int, error) {
 	var count int
 	row := s.db.QueryRow(`SELECT COUNT(*) FROM observation_save_operations`)
